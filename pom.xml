@@ -45,13 +45,24 @@
 			<artifactId>commons-logging</artifactId>
 			<version>1.2</version>
 		</dependency>
-			<!-- http://mvnrepository.com/artifact/com.jcraft/jsch -->
+		<!-- http://mvnrepository.com/artifact/com.jcraft/jsch -->
 		<dependency>
 			<groupId>com.jcraft</groupId>
 			<artifactId>jsch</artifactId>
 			<version>0.1.53</version>
 		</dependency>
-	</dependencies>
+		<!-- https://mvnrepository.com/artifact/ch.ethz.ganymed/ganymed-ssh2 -->
+		<dependency>
+			<groupId>ch.ethz.ganymed</groupId>
+			<artifactId>ganymed-ssh2</artifactId>
+			<version>262</version>
+		</dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>4.5.3</version>
+        </dependency>
+    </dependencies>
 	<build>
 		<finalName>javavnnblog</finalName>
 		<plugins>
